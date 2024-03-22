@@ -14,7 +14,7 @@ import paths from '../../../utils/constant'
 
 const Conversation = () => {
   const { id } = useParams()
-  const user = useSelector((state: RootState) => state.auth.profile)
+  const user = useSelector((state: RootState) => state.auth.profile) as User
   const receiver = useSelector((state: RootState) => state.conversation.receiver)
 
   const theme = useTheme()
@@ -25,7 +25,10 @@ const Conversation = () => {
     if (!id || !user) return
     return query(
       collection(db, 'messages'),
-      and(where('members', 'array-contains', user.uid), or(where('sender', '==', id), where('receiver', '==', id)))
+      and(
+        where('members', 'array-contains', user.uid),
+        or(where('sender', '==', receiver?.uid), where('receiver', '==', receiver?.uid))
+      )
     )
   }, [id])
 
@@ -37,14 +40,14 @@ const Conversation = () => {
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages.length])
 
-  useEffect(() => {
-    if (!id) return
-    if (!receiver) {
-      getDoc(doc(db, 'users', id))
-        .then((result) => dispatch(currentReceiver(result.data() as Receiver)))
-        .catch(() => navigate(paths.chat))
-    }
-  }, [])
+  // useEffect(() => {
+  //   if (!id) return
+  //   if (!receiver) {
+  //     getDoc(doc(db, 'users', id))
+  //       .then((result) => dispatch(currentReceiver(result.data() as Receiver)))
+  //       .catch(() => navigate(paths.chat))
+  //   }
+  // }, [])
 
   return (
     <Box

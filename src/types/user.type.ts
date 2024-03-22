@@ -3,16 +3,16 @@ interface User {
   displayName: string
   email: string
   photoURL: string | null
-  key: string
+  keywords?: string[]
 }
 
 type Receiver = Omit<User, 'email'>
 
 type User_Message = {
-  uid: string
-  key: string
+  uid: string[]
   createAt: number
   latestMessage: string
-  friendInfo: Receiver
   sender: string
+  memberInfo: User[]
+  chatId: string
 }

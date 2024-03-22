@@ -34,7 +34,7 @@ function Login() {
 
       const { uid, displayName, email, photoURL } = result.user
 
-      result.user.getIdToken().then((token) => localStorage.setItem('access_token', token))
+      // result.user.getIdToken().then((token) => localStorage.setItem('access_token', token))
 
       const userRef = doc(db, 'users', uid)
 
@@ -46,7 +46,7 @@ function Login() {
           displayName,
           email,
           photoURL,
-          key: v4()
+          keywords: displayName?.split(' ')
         })
         const newDocSnap = await getDoc(userRef)
         const newUser = newDocSnap.data() as User

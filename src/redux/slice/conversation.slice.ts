@@ -4,10 +4,12 @@ import { PayloadAction, createSlice } from '@reduxjs/toolkit'
 
 interface Props {
   receiver: Receiver | null
+  chatId: string | null
 }
 
 const initialState: Props = {
-  receiver: null
+  receiver: null,
+  chatId: null
 }
 
 const conversationSlice = createSlice({
@@ -16,10 +18,13 @@ const conversationSlice = createSlice({
   reducers: {
     currentReceiver: (state, action: PayloadAction<Receiver>) => {
       state.receiver = action.payload
+    },
+    currentChatId: (state, action: PayloadAction<string>) => {
+      state.chatId = action.payload
     }
   }
 })
 
-export const { currentReceiver } = conversationSlice.actions
+export const { currentReceiver, currentChatId } = conversationSlice.actions
 
 export default conversationSlice.reducer

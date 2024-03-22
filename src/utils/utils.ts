@@ -21,6 +21,10 @@ export const getModeFromLS = (): 'light' | 'dark' | 'system' => {
   }
 }
 
+export const deleteFromLS = () => {
+  localStorage.removeItem('profile')
+}
+
 export const formatDateRelative = (seconds: number) => {
   return formatRelative(subDays(new Date(seconds), 0), new Date())
 }

@@ -4,11 +4,17 @@ import useFirestore from '../../../hooks/useFirestore'
 import { useDispatch, useSelector } from 'react-redux'
 import { AppDispatch, RootState } from '../../../redux/store'
 import { ChatElement } from '.'
-import { currentReceiver } from '../../../redux/slice/conversation.slice'
-import { Query, query, collection, where, getDocs, setDoc, doc } from 'firebase/firestore'
+import { currentChatId, currentReceiver } from '../../../redux/slice/conversation.slice'
+import { Query, query, collection, where, getDocs, and, addDoc, setDoc, doc } from 'firebase/firestore'
 import { db } from '../../../firebase/firebaseConfig'
 import { NavLink } from 'react-router-dom'
 import SearchIcon from '@mui/icons-material/Search'
+import CloseIcon from '@mui/icons-material/Close'
+import { v4 } from 'uuid'
+
+const getReceiver = (members: User[] = [], currentUser: string) => {
+  return members.find((member) => member.uid != currentUser) as User
+}
 
 const ChatList = () => {
   const theme = useTheme()
@@ -18,48 +24,47 @@ const ChatList = () => {
 
   const queryMessages = useMemo<Query | undefined>(() => {
     if (!user) return
-    return query(collection(db, 'user_message'), where('uid', '==', user.uid))
+    return query(collection(db, 'user_message'), where('uid', 'array-contains', user.uid))
   }, [user.uid])
 
   const messages = useFirestore<User_Message>(queryMessages)
 
   const [textSearch, setTextSearch] = useState<string>('')
-  const [results, setResults] = useState<User[]>([])
+  const [resultsSearch, setResultsSearch] = useState<User[]>([])
 
-  const handleClickToChat = (receiver: Receiver) => {
+  const handleClickToChat = (user_message: User_Message) => {
+    const receiver = getReceiver(user_message.memberInfo, user.uid)
+
     dispatch(
       currentReceiver({
-        key: receiver.key,
         uid: receiver.uid,
         displayName: receiver.displayName,
         photoURL: receiver.photoURL
       })
     )
+
+    dispatch(currentChatId(user_message.chatId))
   }
 
   const handleSearch = async () => {
-    const q = query(collection(db, 'users'), where('displayName', '==', textSearch))
+    const q = query(
+      collection(db, 'users'),
+      and(where('uid', '!=', user.uid), where('keywords', 'array-contains', textSearch))
+    )
     const docs = await getDocs(q)
     docs.forEach((doc) => {
-      setResults((prev) => [...prev, doc.data() as User])
+      setResultsSearch((prev) => [...prev, doc.data() as User])
     })
   }
 
   const handleAddFriend = async (result: User) => {
-    await setDoc(doc(db, 'user_message', user.key), {
+    const chatId = v4()
+    await setDoc(doc(db, 'user_message', chatId), {
       createAt: Date.now(),
       latestMessage: '',
-      friendInfo: result,
-      uid: user.uid,
-      key: user.key
-    })
-
-    await setDoc(doc(db, 'user_message', result.key), {
-      createAt: Date.now(),
-      latestMessage: '',
-      friendInfo: user,
-      uid: result.uid,
-      key: result.key
+      memberInfo: [user, result],
+      chatId,
+      uid: [user.uid, result.uid]
     })
   }
 
@@ -78,56 +83,78 @@ const ChatList = () => {
           </Typography>
         </Box>
         <Stack direction='row' spacing={1}>
-          <InputBase
+          <Box
             sx={{
-              px: 2,
-              py: 1,
-              width: '100%',
-              color: theme.palette.text.primary,
+              pl: 2,
+              display: 'flex',
+              alignItems: 'center',
               backgroundColor: theme.palette.primary.main,
               borderRadius: 100,
-              height: 40
+              flexGrow: 1
             }}
-            placeholder='Aa'
-            onChange={(event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) =>
-              setTextSearch(event.target.value)
-            }
-          />
+          >
+            <InputBase
+              sx={{
+                flex: 1,
+                color: theme.palette.text.primary,
+                height: 40
+              }}
+              placeholder='Aa'
+              value={textSearch}
+              onChange={(event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) =>
+                setTextSearch(event.target.value)
+              }
+            />
+            <IconButton type='button' onClick={() => setTextSearch('')}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
           <IconButton sx={{ backgroundColor: theme.palette.primary.main }} onClick={handleSearch}>
             <SearchIcon />
           </IconButton>
         </Stack>
+      </Stack>
+
+      {Boolean(textSearch) && (
         <Stack>
-          {results.map((result) => (
-            <Box>
-              <Avatar src={result.photoURL ?? ''} />
-              <Typography>{result.displayName}</Typography>
-              <Button sx={{ color: theme.palette.text.primary }} onClick={() => handleAddFriend(result)}>
+          {resultsSearch.map((result) => (
+            <Box key={result.uid} sx={{ p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Stack direction='row' spacing={1} alignItems='center'>
+                <Avatar src={result.photoURL ?? ''} sx={{ width: 56, height: 56 }} />
+                <Typography sx={{ color: theme.palette.text.primary }}>{result.displayName}</Typography>
+              </Stack>
+              <Button
+                variant='outlined'
+                sx={{ color: theme.palette.text.primary }}
+                onClick={() => handleAddFriend(result)}
+              >
                 Kết bạn
               </Button>
             </Box>
           ))}
         </Stack>
-      </Stack>
+      )}
 
-      <Stack spacing={0.5}>
-        {messages.map((message) => (
-          <NavLink
-            key={message.uid}
-            to={`/chat/${message.friendInfo.uid}`}
-            onClick={() => handleClickToChat(message.friendInfo)}
-            style={({ isActive }) => ({
-              borderRadius: 16,
-              textDecoration: 'none',
-              color: theme.palette.primary.contrastText,
-              overflow: 'hidden',
-              backgroundColor: isActive ? theme.palette.primary.main : 'transparent'
-            })}
-          >
-            <ChatElement message={message} />
-          </NavLink>
-        ))}
-      </Stack>
+      {!Boolean(textSearch) && (
+        <Stack spacing={0.5}>
+          {messages.map((message) => (
+            <NavLink
+              key={message.chatId}
+              to={`/chat/${message.chatId}`}
+              onClick={() => handleClickToChat(message)}
+              style={({ isActive }) => ({
+                borderRadius: 16,
+                textDecoration: 'none',
+                color: theme.palette.primary.contrastText,
+                overflow: 'hidden',
+                backgroundColor: isActive ? theme.palette.primary.main : 'transparent'
+              })}
+            >
+              <ChatElement message={message} />
+            </NavLink>
+          ))}
+        </Stack>
+      )}
     </Box>
   )
 }

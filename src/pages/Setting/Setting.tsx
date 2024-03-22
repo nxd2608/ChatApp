@@ -1,13 +1,20 @@
-import { RootState } from '../../redux/store'
-import { Avatar, Box, Divider, Stack, Typography, useTheme } from '@mui/material'
-import { useSelector } from 'react-redux'
+import { AppDispatch, RootState } from '../../redux/store'
+import { Avatar, Box, Stack, Typography, useTheme } from '@mui/material'
+import { useDispatch, useSelector } from 'react-redux'
 import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsActiveOutlined'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
 import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import VpnKeyOutlinedIcon from '@mui/icons-material/VpnKeyOutlined'
 import InsertPhotoOutlinedIcon from '@mui/icons-material/InsertPhotoOutlined'
+import LogoutIcon from '@mui/icons-material/Logout'
 import { Fragment } from 'react'
+import { signOut } from 'firebase/auth'
+import { auth } from '../../firebase/firebaseConfig'
+import { useNavigate } from 'react-router-dom'
+import paths from '../../utils/constant'
+import { authenticated, profile } from '../../redux/slice/auth.slice'
+import { deleteFromLS } from '../../utils/utils'
 
 const settingStructure = [
   {
@@ -33,12 +40,32 @@ const settingStructure = [
   {
     icon: <InfoOutlinedIcon />,
     title: 'Help'
+  },
+  {
+    icon: <LogoutIcon />,
+    title: 'Log out'
   }
 ]
 
 const Setting = () => {
   const theme = useTheme()
   const user = useSelector((state: RootState) => state.auth.profile) as User
+
+  const navigate = useNavigate()
+  const dispatch = useDispatch<AppDispatch>()
+
+  const handleLogout = () => {
+    signOut(auth)
+      .then(() => {
+        deleteFromLS()
+        dispatch(authenticated(false))
+        dispatch(profile(null))
+        navigate(paths.login)
+      })
+      .catch(() => {
+        alert('Logout fail')
+      })
+  }
 
   return (
     <Stack direction='column' spacing={4}>
@@ -58,15 +85,25 @@ const Setting = () => {
           {user.displayName}
         </Typography>
       </Stack>
-      <Stack spacing={2} px={3}>
+      <Stack px={3}>
         {settingStructure.map((setting) => (
-          <Fragment>
-            <Stack key={setting.title} direction='row' spacing={2} px={3} py={1}>
-              <Box sx={{ color: theme.palette.text.primary }}>{setting.icon}</Box>
-              <Typography sx={{ color: theme.palette.text.primary }}>{setting.title}</Typography>
-            </Stack>
-            <Divider />
-          </Fragment>
+          <Stack
+            key={setting.title}
+            direction='row'
+            spacing={2}
+            sx={{
+              p: 2,
+              borderRadius: 4,
+              cursor: 'pointer',
+              '&:hover': {
+                backgroundColor: theme.palette.primary.main
+              }
+            }}
+            onClick={handleLogout}
+          >
+            <Box sx={{ color: theme.palette.text.primary }}>{setting.icon}</Box>
+            <Typography sx={{ color: theme.palette.text.primary }}>{setting.title}</Typography>
+          </Stack>
         ))}
       </Stack>
     </Stack>
