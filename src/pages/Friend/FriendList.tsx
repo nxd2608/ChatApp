@@ -9,6 +9,7 @@ import { db } from '../../firebase/firebaseConfig'
 import useFirestore from '../../hooks/useFirestore'
 import { currentReceiver } from '../../redux/slice/conversation.slice'
 import FriendElement from './FriendElement'
+import { getReceiver } from '../../utils/utils'
 
 const FriendList = () => {
   const theme = useTheme()
@@ -18,7 +19,7 @@ const FriendList = () => {
 
   const queryFriends = useMemo<Query | undefined>(() => {
     if (!user) return
-    return query(collection(db, 'user_message'), where('uid', '==', user.uid))
+    return query(collection(db, 'user_message'), where('uid', 'array-contains', user.uid))
   }, [user.uid])
 
   const friends = useFirestore<User_Message>(queryFriends)
@@ -26,10 +27,11 @@ const FriendList = () => {
   const [textSearch, setTextSearch] = useState<string>('')
   const [results, setResults] = useState<User[]>([])
 
-  const handleClickToChat = (receiver: Receiver) => {
+  const handleClickToChat = (user_message: User_Message) => {
+    const receiver = getReceiver(user_message.memberInfo, user.uid)
+
     dispatch(
       currentReceiver({
-        key: receiver.key,
         uid: receiver.uid,
         displayName: receiver.displayName,
         photoURL: receiver.photoURL
@@ -65,8 +67,8 @@ const FriendList = () => {
               px: 2,
               py: 1,
               width: '100%',
-              color: theme.palette.text.primary,
-              backgroundColor: theme.palette.primary.main,
+              color: theme.palette.text.disabled,
+              backgroundColor: theme.palette.background.paper,
               borderRadius: 100,
               height: 40
             }}
@@ -75,7 +77,7 @@ const FriendList = () => {
               setTextSearch(event.target.value)
             }
           />
-          <IconButton sx={{ backgroundColor: theme.palette.primary.main }} onClick={handleSearch}>
+          <IconButton sx={{ backgroundColor: theme.palette.background.paper }} onClick={handleSearch}>
             <SearchIcon />
           </IconButton>
         </Stack>
@@ -84,15 +86,15 @@ const FriendList = () => {
       <Stack spacing={0.5}>
         {friends.map((friend) => (
           <NavLink
-            key={friend.friendInfo.uid}
-            to={`/chat/${friend.friendInfo.uid}`}
-            onClick={() => handleClickToChat(friend.friendInfo)}
+            key={friend.chatId}
+            to={`/chat/${friend.chatId}`}
+            onClick={() => handleClickToChat(friend)}
             style={({ isActive }) => ({
               borderRadius: 16,
               textDecoration: 'none',
               color: theme.palette.primary.contrastText,
               overflow: 'hidden',
-              backgroundColor: isActive ? theme.palette.primary.main : 'transparent'
+              backgroundColor: isActive ? theme.palette.action.hover : 'transparent'
             })}
           >
             <FriendElement friend={friend} />

@@ -1,14 +1,30 @@
-import { Box, IconButton, InputBase, Popover, Typography, useTheme } from '@mui/material'
+import { Box, IconButton, InputBase, Popover, styled, useTheme } from '@mui/material'
 import InsertEmoticonIcon from '@mui/icons-material/InsertEmoticon'
 import { ChangeEvent, useState } from 'react'
 import { addDoc, collection, doc, updateDoc } from 'firebase/firestore'
-import { db } from '../../firebase/firebaseConfig'
+import { db, storage } from '../../firebase/firebaseConfig'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../redux/store'
 import AttachmentRoundedIcon from '@mui/icons-material/AttachmentRounded'
 import SendRoundedIcon from '@mui/icons-material/SendRounded'
 import data from '@emoji-mart/data'
 import Picker from '@emoji-mart/react'
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage'
+import { v4 } from 'uuid'
+
+const imgRef = ref(storage, `image/${v4()}`)
+
+const VisuallyHiddenInput = styled('input')({
+  clip: 'rect(0 0 0 0)',
+  clipPath: 'inset(50%)',
+  height: 1,
+  overflow: 'hidden',
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  whiteSpace: 'nowrap',
+  width: 1
+})
 
 const ConversationFooter = () => {
   const theme = useTheme()
@@ -27,13 +43,14 @@ const ConversationFooter = () => {
 
   const handleClose = () => setAnchorEl(null)
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = async (message: string, messageType: MessageType) => {
     if (!message) return
 
     setMessage('')
 
     await addDoc(collection(db, 'messages'), {
       message: message.trim(),
+      messageType,
       members: [user.uid, receiver.uid],
       sender: user.uid,
       receiver: receiver.uid,
@@ -43,19 +60,24 @@ const ConversationFooter = () => {
     await updateDoc(doc(db, 'user_message', chatId), {
       createAt: Date.now(),
       latestMessage: message.trim(),
+      messageType,
       sender: user.uid
     })
-
-    // await updateDoc(doc(db, 'user_message', receiver.key), {
-    //   createAt: Date.now(),
-    //   latestMessage: message.trim(),
-    //   sender: user.uid
-    // })
   }
 
   const handleEnter = (e: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      handleSendMessage()
+      handleSendMessage(message, 'text')
+    }
+  }
+
+  const handleUploadFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files) {
+      const file = files[0]
+      uploadBytes(imgRef, file)
+        .then((snapshot) => getDownloadURL(snapshot.ref).then((downloadUrl) => handleSendMessage(downloadUrl, 'image')))
+        .catch((error) => console.log(error))
     }
   }
 
@@ -68,11 +90,12 @@ const ConversationFooter = () => {
         display: 'flex',
         alignItems: 'center',
         boxSizing: 'border-box',
-        backgroundColor: theme.palette.background.default
+        backgroundColor: theme.palette.background.paper
       }}
     >
-      <IconButton>
+      <IconButton component='label'>
         <AttachmentRoundedIcon />
+        <VisuallyHiddenInput type='file' accept='.png,.jpg,.jpeg' onChange={handleUploadFile} />
       </IconButton>
 
       <Box
@@ -80,7 +103,7 @@ const ConversationFooter = () => {
           pl: 2,
           display: 'flex',
           alignItems: 'center',
-          backgroundColor: theme.palette.primary.main,
+          backgroundColor: theme.palette.background.default,
           borderRadius: 100,
           flexGrow: 1
         }}
@@ -88,7 +111,7 @@ const ConversationFooter = () => {
         <InputBase
           sx={{
             flex: 1,
-            color: theme.palette.primary.contrastText
+            color: theme.palette.text.disabled
           }}
           placeholder='Aa'
           value={message}
@@ -116,7 +139,7 @@ const ConversationFooter = () => {
         </Popover>
       </Box>
 
-      <IconButton onClick={handleSendMessage}>
+      <IconButton onClick={() => handleSendMessage(message, 'text')}>
         <SendRoundedIcon />
       </IconButton>
     </Box>

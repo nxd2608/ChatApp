@@ -2,9 +2,10 @@ const paths = {
   chat: '/chat',
   login: '/login',
   register: '/register',
-  conversation: '/t/:id',
+  conversation: '/chat/:id',
   friends: '/friends',
-  setting: '/setting'
+  setting: '/setting',
+  call: '/call'
 }
 
 export default paths

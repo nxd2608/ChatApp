@@ -21,7 +21,7 @@ export const MainLayout = ({ children }: Props) => {
           p: 1,
           width: 400,
           height: '100vh',
-          backgroundColor: theme.palette.secondary.main,
+          backgroundColor: theme.palette.background.default,
           boxSizing: 'border-box',
           position: 'sticky',
           top: 0

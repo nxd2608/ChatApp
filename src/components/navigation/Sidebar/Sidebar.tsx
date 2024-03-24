@@ -20,7 +20,7 @@ const Sidebar = () => {
         py: 1,
         width: '100%',
         height: '100vh',
-        backgroundColor: theme.palette.primary.main,
+        backgroundColor: theme.palette.secondary.main,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
@@ -97,7 +97,18 @@ const Sidebar = () => {
           <ModeToggle />
         </Box>
         <Box>
-          <Avatar alt='avatar' src={user?.photoURL ?? ''} />
+          <Avatar
+            alt='avatar'
+            src={user?.photoURL ?? ''}
+            sx={{
+              background: 'linear-gradient(315deg, rgba(0, 255, 231), rgba(212, 217, 0))'
+            }}
+          >
+            {user?.displayName
+              .split(' ')
+              .at(length - 1)
+              ?.charAt(0)}
+          </Avatar>
         </Box>
       </Stack>
     </Box>
