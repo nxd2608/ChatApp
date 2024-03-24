@@ -25,7 +25,8 @@ const darkNeutral = {
   700: '#8C9BAB',
   800: '#9FADBC',
   900: '#B6C2CF',
-  1000: '#C7D1DB'
+  1000: '#C7D1DB',
+  1100: '#FFFFFF'
 }
 
 const colorScheme = extendTheme({
@@ -36,20 +37,25 @@ const colorScheme = extendTheme({
     light: {
       palette: {
         primary: {
-          main: lightNeutral[0],
-          contrastText: lightNeutral[1000]
+          main: lightNeutral[1000]
         },
         secondary: {
-          main: lightNeutral[100],
-          contrastText: lightNeutral[1000]
+          main: lightNeutral[0]
+        },
+        common: {
+          white: lightNeutral[0],
+          black: lightNeutral[1000]
         },
         background: {
           default: lightNeutral[100],
           paper: lightNeutral[200]
         },
+        action: {
+          hover: lightNeutral[0],
+          selected: lightNeutral[200]
+        },
         text: {
           primary: lightNeutral[1000],
-          secondary: lightNeutral[0],
           disabled: lightNeutral[800]
         }
       }
@@ -57,20 +63,25 @@ const colorScheme = extendTheme({
     dark: {
       palette: {
         primary: {
-          main: darkNeutral[100],
-          contrastText: darkNeutral[1000]
+          main: darkNeutral[1000]
         },
         secondary: {
-          main: darkNeutral[200],
-          contrastText: darkNeutral[1000]
+          main: darkNeutral[0]
+        },
+        common: {
+          white: darkNeutral[1100],
+          black: darkNeutral[0]
         },
         background: {
-          default: darkNeutral[300],
-          paper: darkNeutral[300]
+          default: darkNeutral[100],
+          paper: darkNeutral[200]
+        },
+        action: {
+          hover: darkNeutral[0],
+          selected: darkNeutral[200]
         },
         text: {
           primary: darkNeutral[1000],
-          secondary: darkNeutral[0],
           disabled: darkNeutral[800]
         }
       }

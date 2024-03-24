@@ -5,16 +5,26 @@ import { useDispatch, useSelector } from 'react-redux'
 import { AppDispatch, RootState } from '../../../redux/store'
 import { ChatElement } from '.'
 import { currentChatId, currentReceiver } from '../../../redux/slice/conversation.slice'
-import { Query, query, collection, where, getDocs, and, addDoc, setDoc, doc } from 'firebase/firestore'
+import {
+  Query,
+  query,
+  collection,
+  where,
+  getDocs,
+  and,
+  setDoc,
+  doc,
+  updateDoc,
+  arrayUnion,
+  getDoc
+} from 'firebase/firestore'
 import { db } from '../../../firebase/firebaseConfig'
 import { NavLink } from 'react-router-dom'
 import SearchIcon from '@mui/icons-material/Search'
 import CloseIcon from '@mui/icons-material/Close'
 import { v4 } from 'uuid'
-
-const getReceiver = (members: User[] = [], currentUser: string) => {
-  return members.find((member) => member.uid != currentUser) as User
-}
+import { getReceiver, setProfileToLS } from '../../../utils/utils'
+import { profile } from '../../../redux/slice/auth.slice'
 
 const ChatList = () => {
   const theme = useTheme()
@@ -37,6 +47,7 @@ const ChatList = () => {
 
     dispatch(
       currentReceiver({
+        userID: receiver.userID,
         uid: receiver.uid,
         displayName: receiver.displayName,
         photoURL: receiver.photoURL
@@ -62,10 +73,26 @@ const ChatList = () => {
     await setDoc(doc(db, 'user_message', chatId), {
       createAt: Date.now(),
       latestMessage: '',
+      messageType: 'text' as const,
       memberInfo: [user, result],
       chatId,
       uid: [user.uid, result.uid]
     })
+
+    await updateDoc(doc(db, 'users', user.uid), {
+      friends: arrayUnion(result.uid)
+    })
+    await updateDoc(doc(db, 'users', result.uid), {
+      friends: arrayUnion(user.uid)
+    })
+
+    const docSnap = await getDoc(doc(db, 'users', user.uid))
+
+    if (docSnap.exists()) {
+      const data = docSnap.data() as User
+      dispatch(profile(data))
+      setProfileToLS(data)
+    }
   }
 
   return (
@@ -88,7 +115,7 @@ const ChatList = () => {
               pl: 2,
               display: 'flex',
               alignItems: 'center',
-              backgroundColor: theme.palette.primary.main,
+              backgroundColor: theme.palette.background.paper,
               borderRadius: 100,
               flexGrow: 1
             }}
@@ -96,7 +123,7 @@ const ChatList = () => {
             <InputBase
               sx={{
                 flex: 1,
-                color: theme.palette.text.primary,
+                color: theme.palette.text.disabled,
                 height: 40
               }}
               placeholder='Aa'
@@ -105,11 +132,13 @@ const ChatList = () => {
                 setTextSearch(event.target.value)
               }
             />
-            <IconButton type='button' onClick={() => setTextSearch('')}>
-              <CloseIcon />
-            </IconButton>
+            {Boolean(textSearch) && (
+              <IconButton type='button' onClick={() => setTextSearch('')}>
+                <CloseIcon />
+              </IconButton>
+            )}
           </Box>
-          <IconButton sx={{ backgroundColor: theme.palette.primary.main }} onClick={handleSearch}>
+          <IconButton sx={{ backgroundColor: theme.palette.background.paper }} onClick={handleSearch}>
             <SearchIcon />
           </IconButton>
         </Stack>
@@ -117,21 +146,26 @@ const ChatList = () => {
 
       {Boolean(textSearch) && (
         <Stack>
-          {resultsSearch.map((result) => (
-            <Box key={result.uid} sx={{ p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Stack direction='row' spacing={1} alignItems='center'>
-                <Avatar src={result.photoURL ?? ''} sx={{ width: 56, height: 56 }} />
-                <Typography sx={{ color: theme.palette.text.primary }}>{result.displayName}</Typography>
-              </Stack>
-              <Button
-                variant='outlined'
-                sx={{ color: theme.palette.text.primary }}
-                onClick={() => handleAddFriend(result)}
+          {resultsSearch
+            .filter((searchUser) => !user.friends.includes(searchUser.uid))
+            .map((result) => (
+              <Box
+                key={result.uid}
+                sx={{ p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
               >
-                Kết bạn
-              </Button>
-            </Box>
-          ))}
+                <Stack direction='row' spacing={1} alignItems='center'>
+                  <Avatar src={result.photoURL ?? ''} sx={{ width: 56, height: 56 }} />
+                  <Typography sx={{ color: theme.palette.text.primary }}>{result.displayName}</Typography>
+                </Stack>
+                <Button
+                  variant='outlined'
+                  sx={{ color: theme.palette.text.primary }}
+                  onClick={() => handleAddFriend(result)}
+                >
+                  Kết bạn
+                </Button>
+              </Box>
+            ))}
         </Stack>
       )}
 
@@ -147,7 +181,7 @@ const ChatList = () => {
                 textDecoration: 'none',
                 color: theme.palette.primary.contrastText,
                 overflow: 'hidden',
-                backgroundColor: isActive ? theme.palette.primary.main : 'transparent'
+                backgroundColor: isActive ? theme.palette.action.selected : 'transparent'
               })}
             >
               <ChatElement message={message} />

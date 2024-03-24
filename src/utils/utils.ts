@@ -1,4 +1,4 @@
-import { formatDistanceToNowStrict, formatRelative, subDays } from 'date-fns'
+import { formatDistanceToNowStrict, formatRelative, intlFormatDistance, subDays } from 'date-fns'
 
 export const getProfileFromLS = () => {
   const result = localStorage.getItem('profile')
@@ -29,6 +29,14 @@ export const formatDateRelative = (seconds: number) => {
   return formatRelative(subDays(new Date(seconds), 0), new Date())
 }
 
+export const formatDateIntl = (seconds: number) => {
+  return intlFormatDistance(new Date(seconds), new Date())
+}
+
 export const formatDateDistance = (seconds: number) => {
   return formatDistanceToNowStrict(new Date(seconds))
+}
+
+export const getReceiver = (members: User[] = [], currentUser: string) => {
+  return members.find((member) => member.uid != currentUser) as User
 }

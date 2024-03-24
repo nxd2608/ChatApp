@@ -1,17 +1,29 @@
 import { Stack, Box, Avatar, Typography, useTheme } from '@mui/material'
-import { formatDateDistance, formatDateRelative } from '../../../utils/utils'
+import { formatDateIntl, getReceiver } from '../../../utils/utils'
 import { useSelector } from 'react-redux'
 import { RootState } from '../../../redux/store'
-
-const getReceiver = (members: User[] = [], currentUser: string) => {
-  return members.find((member) => member.uid != currentUser)
-}
+import PhotoOutlinedIcon from '@mui/icons-material/PhotoOutlined'
+import VideoLibraryOutlinedIcon from '@mui/icons-material/VideoLibraryOutlined'
 
 const ChatElement = ({ message }: { message: User_Message }) => {
   const theme = useTheme()
 
   const user = useSelector((state: RootState) => state.auth.profile) as User
   const receiver = getReceiver(message.memberInfo, user.uid)
+
+  const messCase = () => {
+    switch (message.messageType) {
+      case 'text': {
+        return message.latestMessage
+      }
+      case 'image': {
+        return <PhotoOutlinedIcon />
+      }
+      case 'video': {
+        return <VideoLibraryOutlinedIcon />
+      }
+    }
+  }
 
   return (
     <Stack
@@ -24,7 +36,7 @@ const ChatElement = ({ message }: { message: User_Message }) => {
         justifyContent: 'space-between',
         alignItems: 'start',
         '&:hover': {
-          backgroundColor: theme.palette.primary.main,
+          backgroundColor: theme.palette.action.hover,
           cursor: 'pointer'
         }
       }}
@@ -41,17 +53,22 @@ const ChatElement = ({ message }: { message: User_Message }) => {
       >
         <Avatar sx={{ width: 56, height: 56 }} src={receiver?.photoURL ?? ''} />
         <Box display='flex' flexDirection='column' justifyContent='space-between' overflow='hidden'>
-          <Typography variant='subtitle1' fontWeight='600' overflow='hidden' textOverflow='ellipsis'>
+          <Typography
+            variant='subtitle1'
+            fontWeight='600'
+            overflow='hidden'
+            textOverflow='ellipsis'
+            sx={{ color: theme.palette.text.disabled }}
+          >
             {receiver?.displayName}
           </Typography>
           <Typography
             variant='subtitle2'
             overflow='hidden'
             textOverflow='ellipsis'
-            sx={{ color: theme.palette.text.disabled }}
+            sx={{ color: theme.palette.text.disabled, display: 'flex', alignItems: 'end' }}
           >
-            {message.sender === user.uid && 'Bạn: '}
-            {message.latestMessage}
+            {message.sender === user.uid && <Typography>Bạn: </Typography>} {messCase()}
           </Typography>
         </Box>
       </Stack>
@@ -59,10 +76,10 @@ const ChatElement = ({ message }: { message: User_Message }) => {
       <Typography
         variant='caption'
         flexShrink={0}
-        py={0.5}
+        py={0.7}
         sx={{ color: theme.palette.text.primary, textTransform: 'capitalize' }}
       >
-        {formatDateRelative(message.createAt)}
+        {formatDateIntl(message.createAt)}
       </Typography>
     </Stack>
   )

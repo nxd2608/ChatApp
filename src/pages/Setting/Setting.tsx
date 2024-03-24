@@ -1,5 +1,5 @@
 import { AppDispatch, RootState } from '../../redux/store'
-import { Avatar, Box, Stack, Typography, useTheme } from '@mui/material'
+import { Avatar, Box, Stack, Typography, styled, useTheme } from '@mui/material'
 import { useDispatch, useSelector } from 'react-redux'
 import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsActiveOutlined'
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined'
@@ -8,13 +8,15 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import VpnKeyOutlinedIcon from '@mui/icons-material/VpnKeyOutlined'
 import InsertPhotoOutlinedIcon from '@mui/icons-material/InsertPhotoOutlined'
 import LogoutIcon from '@mui/icons-material/Logout'
-import { Fragment } from 'react'
 import { signOut } from 'firebase/auth'
-import { auth } from '../../firebase/firebaseConfig'
+import { auth, db, storage } from '../../firebase/firebaseConfig'
 import { useNavigate } from 'react-router-dom'
 import paths from '../../utils/constant'
 import { authenticated, profile } from '../../redux/slice/auth.slice'
-import { deleteFromLS } from '../../utils/utils'
+import { deleteFromLS, setProfileToLS } from '../../utils/utils'
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage'
+import { doc, getDoc, updateDoc } from 'firebase/firestore'
+import { v4 } from 'uuid'
 
 const settingStructure = [
   {
@@ -40,12 +42,22 @@ const settingStructure = [
   {
     icon: <InfoOutlinedIcon />,
     title: 'Help'
-  },
-  {
-    icon: <LogoutIcon />,
-    title: 'Log out'
   }
 ]
+
+const VisuallyHiddenInput = styled('input')({
+  clip: 'rect(0 0 0 0)',
+  clipPath: 'inset(50%)',
+  height: 1,
+  overflow: 'hidden',
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  whiteSpace: 'nowrap',
+  width: 1
+})
+
+const avatarRef = ref(storage, `avatar/${v4()}`)
 
 const Setting = () => {
   const theme = useTheme()
@@ -53,6 +65,29 @@ const Setting = () => {
 
   const navigate = useNavigate()
   const dispatch = useDispatch<AppDispatch>()
+
+  const handleUploadFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files) {
+      const file = files[0]
+      uploadBytes(avatarRef, file)
+        .then((snapshot) => getDownloadURL(snapshot.ref).then((downloadUrl) => handleUpdateProfile(downloadUrl)))
+        .catch((error) => console.log(error))
+    }
+  }
+
+  const handleUpdateProfile = async (url: string) => {
+    await updateDoc(doc(db, 'users', user.uid), {
+      photoURL: url
+    })
+
+    const docSnap = await getDoc(doc(db, 'users', user.uid))
+    if (docSnap.exists()) {
+      const data = docSnap.data() as User
+      setProfileToLS(data)
+      dispatch(profile(data))
+    }
+  }
 
   const handleLogout = () => {
     signOut(auth)
@@ -73,17 +108,31 @@ const Setting = () => {
         Setting
       </Typography>
       <Stack direction='row' justifyContent='left' alignItems='center' spacing={2} px={3}>
-        <Avatar
-          alt='avatar'
-          src={user.photoURL ?? ''}
-          sx={{
-            width: 75,
-            height: 75
-          }}
-        />
-        <Typography variant='h5' sx={{ color: theme.palette.text.primary }}>
-          {user.displayName}
-        </Typography>
+        <Box component='label'>
+          <Avatar
+            alt='avatar'
+            src={user.photoURL ?? ''}
+            sx={{
+              width: 75,
+              height: 75,
+              background: 'linear-gradient(315deg, rgba(0, 255, 231), rgba(212, 217, 0))'
+            }}
+          >
+            {user?.displayName
+              .split(' ')
+              .at(length - 1)
+              ?.charAt(0)}
+          </Avatar>
+          <VisuallyHiddenInput type='file' accept='.png,.jpg,.jpeg' onChange={handleUploadFile} />
+        </Box>
+        <Box display='flex' flexDirection='column' justifyContent='space-between' height={'100%'}>
+          <Typography variant='h5' sx={{ color: theme.palette.text.primary }}>
+            {user.displayName}
+          </Typography>
+          <Typography variant='body2' sx={{ color: theme.palette.text.primary, fontStyle: 'italic' }}>
+            {user.email}
+          </Typography>
+        </Box>
       </Stack>
       <Stack px={3}>
         {settingStructure.map((setting) => (
@@ -96,15 +145,32 @@ const Setting = () => {
               borderRadius: 4,
               cursor: 'pointer',
               '&:hover': {
-                backgroundColor: theme.palette.primary.main
+                backgroundColor: theme.palette.action.hover
               }
             }}
-            onClick={handleLogout}
           >
             <Box sx={{ color: theme.palette.text.primary }}>{setting.icon}</Box>
             <Typography sx={{ color: theme.palette.text.primary }}>{setting.title}</Typography>
           </Stack>
         ))}
+        <Stack
+          direction='row'
+          spacing={2}
+          sx={{
+            p: 2,
+            borderRadius: 4,
+            cursor: 'pointer',
+            '&:hover': {
+              backgroundColor: theme.palette.action.hover
+            }
+          }}
+          onClick={handleLogout}
+        >
+          <Box sx={{ color: theme.palette.text.primary }}>
+            <LogoutIcon />
+          </Box>
+          <Typography sx={{ color: theme.palette.text.primary }}>Log out</Typography>
+        </Stack>
       </Stack>
     </Stack>
   )

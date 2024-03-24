@@ -1,26 +1,21 @@
-import {
-  Box,
-  Button,
-  Checkbox,
-  FormControlLabel,
-  Grid,
-  Link,
-  Stack,
-  TextField,
-  Typography,
-  useTheme
-} from '@mui/material'
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
+import { Box, Button, Grid, Stack, TextField, Typography, useTheme } from '@mui/material'
+import { GoogleAuthProvider, signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth'
 import { auth, db } from '../../firebase/firebaseConfig'
-import { useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { useDispatch } from 'react-redux'
 import { AppDispatch } from '../../redux/store'
 import { authenticated, profile } from '../../redux/slice/auth.slice'
 import { setProfileToLS } from '../../utils/utils'
-import { v4 } from 'uuid'
+import paths from '../../utils/constant'
+import { CredentialSchema, credentialSchema } from '../../utils/rules'
+import { useForm } from 'react-hook-form'
+import { yupResolver } from '@hookform/resolvers/yup'
 
 const googleProvider = new GoogleAuthProvider()
+
+type FormData = Pick<CredentialSchema, 'email' | 'password'>
+const loginSchema = credentialSchema.pick(['email', 'password'])
 
 function Login() {
   const theme = useTheme()
@@ -28,13 +23,40 @@ function Login() {
   const navigate = useNavigate()
   const dispatch = useDispatch<AppDispatch>()
 
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setError
+  } = useForm<FormData>({
+    resolver: yupResolver(loginSchema)
+  })
+
+  const handleLoginWithEmailAndPassword = handleSubmit((data) => {
+    signInWithEmailAndPassword(auth, data.email, data.password)
+      .then((userCredential) => {
+        const { uid } = userCredential.user
+        getDoc(doc(db, 'users', uid)).then((docSnap) => {
+          const user = docSnap.data()! as User
+          dispatch(profile(user))
+          dispatch(authenticated(true))
+          setProfileToLS(user)
+          navigate(paths.chat)
+        })
+      })
+      .catch(() =>
+        setError('password', {
+          type: 'server',
+          message: 'Email hoặc password không chính xác'
+        })
+      )
+  })
+
   const handleLoginGoogle = async () => {
     try {
       const result = await signInWithPopup(auth, googleProvider)
 
       const { uid, displayName, email, photoURL } = result.user
-
-      // result.user.getIdToken().then((token) => localStorage.setItem('access_token', token))
 
       const userRef = doc(db, 'users', uid)
 
@@ -42,10 +64,12 @@ function Login() {
 
       if (!docSnap.exists()) {
         setDoc(userRef, {
+          userID: uid,
           uid,
           displayName,
           email,
           photoURL,
+          friends: [],
           keywords: displayName?.split(' ')
         })
         const newDocSnap = await getDoc(userRef)
@@ -59,7 +83,7 @@ function Login() {
       }
 
       dispatch(authenticated(true))
-      navigate('/')
+      navigate(paths.chat)
     } catch (error) {
       alert(error)
     }
@@ -71,13 +95,13 @@ function Login() {
         height: '100vh',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        backgroundColor: theme.palette.background.paper
       }}
     >
       <Box
         sx={{
           width: '30%',
-          [theme.breakpoints.down('xl')]: { width: '50%' },
           [theme.breakpoints.down('sm')]: { width: '100%', p: 3, boxSizing: 'border-box' },
           display: 'flex',
           flexDirection: 'column',
@@ -85,33 +109,24 @@ function Login() {
           justifyContent: 'center'
         }}
       >
-        <Typography component='h1' variant='h5'>
+        <Typography component='h1' variant='h5' sx={{ color: theme.palette.text.primary }}>
           Sign in
         </Typography>
-        <Box sx={{ mt: 1 }}>
-          <TextField
-            margin='normal'
-            required
-            fullWidth
-            id='email'
-            label='Email Address'
-            name='email'
-            autoComplete='email'
-            autoFocus
-          />
-          <TextField
-            margin='normal'
-            required
-            fullWidth
-            name='password'
-            label='Password'
-            type='password'
-            id='password'
-            autoComplete='current-password'
-          />
-          <FormControlLabel control={<Checkbox value='remember' color='primary' />} label='Remember me' />
+        <Stack sx={{ mt: 1, width: '100%' }} spacing={2}>
+          <Box>
+            <TextField required fullWidth id='email' label='Email Address' type='text' {...register('email')} />
+            <Typography variant='subtitle2' sx={{ minHeight: '1.25rem', color: theme.palette.error.main }}>
+              {errors.email?.message && errors.email.message}
+            </Typography>
+          </Box>
+          <Box>
+            <TextField required fullWidth label='Password' type='password' id='password' {...register('password')} />
+            <Typography variant='subtitle2' sx={{ minHeight: '1.25rem', color: theme.palette.error.main }}>
+              {errors.password?.message && errors.password.message}
+            </Typography>
+          </Box>
           <Stack direction='column' my={2} spacing={2}>
-            <Button type='submit' fullWidth variant='contained'>
+            <Button type='submit' fullWidth variant='contained' onClick={handleLoginWithEmailAndPassword}>
               Sign In
             </Button>
             <Button type='submit' fullWidth variant='contained' onClick={handleLoginGoogle}>
@@ -120,17 +135,31 @@ function Login() {
           </Stack>
           <Grid container>
             <Grid item xs>
-              <Link href='#' variant='body2'>
+              <NavLink
+                to={'#'}
+                style={{
+                  color: theme.palette.text.primary,
+                  fontFamily: theme.typography.fontFamily,
+                  textDecoration: 'none'
+                }}
+              >
                 Forgot password?
-              </Link>
+              </NavLink>
             </Grid>
             <Grid item>
-              <Link href='#' variant='body2'>
-                {"Don't have an account? Sign Up"}
-              </Link>
+              <NavLink
+                to={paths.register}
+                style={{
+                  color: theme.palette.text.primary,
+                  fontFamily: theme.typography.fontFamily,
+                  textDecoration: 'none'
+                }}
+              >
+                Don't have an account? Sign Up
+              </NavLink>
             </Grid>
           </Grid>
-        </Box>
+        </Stack>
       </Box>
     </Box>
   )

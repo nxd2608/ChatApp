@@ -8,6 +8,7 @@ import { RootState } from '../redux/store'
 import paths from '../utils/constant'
 import FriendList from '../pages/Friend/FriendList'
 import Setting from '../pages/Setting/Setting'
+import Call from '../pages/Call/Call'
 
 const ProtectedRoute = () => {
   const isAuthenticated = useSelector((state: RootState) => state.auth.isAuthenticated)
@@ -48,7 +49,7 @@ const useRoutesElement = () => {
           ),
           children: [
             {
-              path: ':id',
+              path: paths.conversation,
               element: (
                 <MainLayout>
                   <ChatList />
@@ -72,6 +73,10 @@ const useRoutesElement = () => {
               <Setting />
             </MainLayout>
           )
+        },
+        {
+          path: paths.call,
+          element: <Call />
         }
       ]
     }

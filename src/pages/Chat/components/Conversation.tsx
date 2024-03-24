@@ -4,18 +4,18 @@ import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '../../../redux/store'
 import { Fragment, useEffect, useMemo, useRef } from 'react'
 import useFirestore from '../../../hooks/useFirestore'
-import { Message as MessageType } from '../../../types/message.type'
-import Message from './Message'
 import { Query, and, collection, doc, getDoc, or, query, where } from 'firebase/firestore'
 import { db } from '../../../firebase/firebaseConfig'
 import { useNavigate, useParams } from 'react-router-dom'
-import { currentReceiver } from '../../../redux/slice/conversation.slice'
+import { currentChatId, currentReceiver } from '../../../redux/slice/conversation.slice'
 import paths from '../../../utils/constant'
+import { getReceiver } from '../../../utils/utils'
+import MessageElement from './MessageElement'
 
 const Conversation = () => {
   const { id } = useParams()
   const user = useSelector((state: RootState) => state.auth.profile) as User
-  const receiver = useSelector((state: RootState) => state.conversation.receiver)
+  let receiver = useSelector((state: RootState) => state.conversation.receiver)
 
   const theme = useTheme()
   const dispatch = useDispatch()
@@ -27,12 +27,13 @@ const Conversation = () => {
       collection(db, 'messages'),
       and(
         where('members', 'array-contains', user.uid),
-        or(where('sender', '==', receiver?.uid), where('receiver', '==', receiver?.uid))
+        or(where('sender', '==', receiver?.uid ?? ''), where('receiver', '==', receiver?.uid ?? ''))
       )
     )
-  }, [id])
+  }, [id, receiver])
 
-  const messages = useFirestore<MessageType>(queryMessage)
+  const messages = useFirestore<Message>(queryMessage)
+  console.log(messages)
 
   const ref = useRef<HTMLDivElement>(null)
 
@@ -40,14 +41,19 @@ const Conversation = () => {
     ref.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages.length])
 
-  // useEffect(() => {
-  //   if (!id) return
-  //   if (!receiver) {
-  //     getDoc(doc(db, 'users', id))
-  //       .then((result) => dispatch(currentReceiver(result.data() as Receiver)))
-  //       .catch(() => navigate(paths.chat))
-  //   }
-  // }, [])
+  useEffect(() => {
+    if (!id) return
+    if (!receiver) {
+      getDoc(doc(db, 'user_message', id))
+        .then((result) => {
+          const user_message = result.data() as User_Message
+          receiver = getReceiver(user_message.memberInfo, user.uid)
+          dispatch(currentReceiver(receiver))
+          dispatch(currentChatId(id))
+        })
+        .catch(() => navigate(paths.chat))
+    }
+  }, [])
 
   return (
     <Box
@@ -60,7 +66,7 @@ const Conversation = () => {
     >
       {id && (
         <Fragment>
-          <Box flexShrink={0} sx={{ position: 'sticky', top: 0, zIndex: 9999 }}>
+          <Box flexShrink={0} sx={{ position: 'sticky', top: 0, zIndex: 1 }}>
             <ConversationHeader />
           </Box>
           <Box flexGrow={1} sx={{ display: 'flex', flexDirection: 'column' }}>
@@ -89,7 +95,7 @@ const Conversation = () => {
                     if (index + 1 != messages.length) {
                       isLastMessage = message.sender !== messages[index + 1].sender
                     }
-                    return <Message key={message.createAt} message={message} isLastMessage={isLastMessage} />
+                    return <MessageElement key={message.createAt} message={message} isLastMessage={isLastMessage} />
                   })}
               </Stack>
             </Box>
@@ -98,7 +104,7 @@ const Conversation = () => {
               <ConversationFooter />
             </Box>
 
-            <div ref={ref} />
+            <Box ref={ref} />
           </Box>
         </Fragment>
       )}
